@@ -312,6 +312,10 @@ client.once("ready", async () => {
         {
             name: "review",
             description: "إرسال رسالة التقييم"
+        },
+        {
+            name: "send-product",
+            description: "إرسال رسالة منتج"
         }
     ]);
 });
@@ -985,6 +989,92 @@ interaction.fields.getTextInputValue(
                 reason
             );
         }
+
+        // PRODUCT MODAL
+
+        if (interaction.customId === "product_modal") {
+
+            const productName =
+                interaction.fields.getTextInputValue("product_name");
+
+            const version =
+                interaction.fields.getTextInputValue("version");
+
+            const features =
+                interaction.fields.getTextInputValue("features");
+
+            const price =
+                interaction.fields.getTextInputValue("price");
+
+            const imageUrl =
+                interaction.fields.getTextInputValue("image_url");
+
+            const notes =
+                interaction.fields.getTextInputValue("notes");
+
+            const featuresList = features.split('\n').map(f => `> ${f}`).join('\n');
+
+            const embed = createEmbed({
+
+                title: `${CONFIG.BRAND_NAME}\n${productName} ${version}`,
+
+                description: `
+## مميزات الجرافيك
+
+${featuresList}
+
+**السعر:** ${price}
+
+${notes ? `**ملاحظة:** ${notes}` : ''}
+                `,
+
+                thumbnail: interaction.guild.iconURL()
+            });
+
+            if (imageUrl) {
+                embed.setImage(imageUrl);
+            }
+
+            const row =
+                new ActionRowBuilder()
+
+                    .addComponents(
+
+                        new ButtonBuilder()
+
+                            .setLabel("الشراء السريع")
+
+                            .setEmoji("🛒")
+
+                            .setStyle(ButtonStyle.Success)
+
+                            .setCustomId("quick_buy"),
+
+                        new ButtonBuilder()
+
+                            .setLabel("للمزيد من التفاصيل انقر هنا")
+
+                            .setEmoji("📋")
+
+                            .setStyle(ButtonStyle.Secondary)
+
+                            .setCustomId("more_details")
+                    );
+
+            await interaction.channel.send({
+
+                embeds: [embed],
+
+                components: [row]
+            });
+
+            return interaction.reply({
+
+                content: "تم إرسال رسالة المنتج بنجاح ✅",
+
+                ephemeral: true
+            });
+        }
     }
 
     // ======================================================
@@ -1055,6 +1145,93 @@ interaction.fields.getTextInputValue(
                     }
                 ]
             });
+        }
+
+        if (interaction.commandName === "send-product") {
+
+            const modal =
+                new ModalBuilder()
+
+                    .setCustomId("product_modal")
+
+                    .setTitle("إرسال منتج");
+
+            const productName =
+                new TextInputBuilder()
+
+                    .setCustomId("product_name")
+
+                    .setLabel("اسم المنتج")
+
+                    .setStyle(TextInputStyle.Short);
+
+            const version =
+                new TextInputBuilder()
+
+                    .setCustomId("version")
+
+                    .setLabel("الإصدار")
+
+                    .setStyle(TextInputStyle.Short);
+
+            const features =
+                new TextInputBuilder()
+
+                    .setCustomId("features")
+
+                    .setLabel("المميزات (كل ميزة في سطر جديد)")
+
+                    .setStyle(TextInputStyle.Paragraph);
+
+            const price =
+                new TextInputBuilder()
+
+                    .setCustomId("price")
+
+                    .setLabel("السعر")
+
+                    .setStyle(TextInputStyle.Short);
+
+            const imageUrl =
+                new TextInputBuilder()
+
+                    .setCustomId("image_url")
+
+                    .setLabel("رابط الصورة")
+
+                    .setStyle(TextInputStyle.Short);
+
+            const notes =
+                new TextInputBuilder()
+
+                    .setCustomId("notes")
+
+                    .setLabel("ملاحظات")
+
+                    .setStyle(TextInputStyle.Paragraph);
+
+            modal.addComponents(
+
+                new ActionRowBuilder()
+                    .addComponents(productName),
+
+                new ActionRowBuilder()
+                    .addComponents(version),
+
+                new ActionRowBuilder()
+                    .addComponents(features),
+
+                new ActionRowBuilder()
+                    .addComponents(price),
+
+                new ActionRowBuilder()
+                    .addComponents(imageUrl),
+
+                new ActionRowBuilder()
+                    .addComponents(notes)
+            );
+
+            return interaction.showModal(modal);
         }
     }
 });
