@@ -1231,7 +1231,7 @@ ${notes ? `**ملاحظة:** ${notes}` : ''}
                     .addComponents(notes)
             );
 
-            return interaction.showModal(modal);
+            return await interaction.showModal(modal);
         }
     }
 });
