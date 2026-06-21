@@ -1009,9 +1009,6 @@ interaction.fields.getTextInputValue(
             const imageUrl =
                 interaction.fields.getTextInputValue("image_url");
 
-            const notes =
-                interaction.fields.getTextInputValue("notes");
-
             const featuresList = features.split('\n').map(f => `> ${f}`).join('\n');
 
             const embed = createEmbed({
@@ -1024,8 +1021,6 @@ interaction.fields.getTextInputValue(
 ${featuresList}
 
 **السعر:** ${price}
-
-${notes ? `**ملاحظة:** ${notes}` : ''}
                 `,
 
                 thumbnail: interaction.guild.iconURL()
@@ -1161,7 +1156,7 @@ ${notes ? `**ملاحظة:** ${notes}` : ''}
 
                     .setCustomId("product_name")
 
-                    .setLabel("اسم المنتج")
+                    .setLabel("اسم المنتج (مثال: D1 Pack)")
 
                     .setStyle(TextInputStyle.Short);
 
@@ -1170,7 +1165,7 @@ ${notes ? `**ملاحظة:** ${notes}` : ''}
 
                     .setCustomId("version")
 
-                    .setLabel("الإصدار")
+                    .setLabel("الإصدار (مثال: v1.2.4)")
 
                     .setStyle(TextInputStyle.Short);
 
@@ -1201,15 +1196,6 @@ ${notes ? `**ملاحظة:** ${notes}` : ''}
 
                     .setStyle(TextInputStyle.Short);
 
-            const notes =
-                new TextInputBuilder()
-
-                    .setCustomId("notes")
-
-                    .setLabel("ملاحظات")
-
-                    .setStyle(TextInputStyle.Paragraph);
-
             modal.addComponents(
 
                 new ActionRowBuilder()
@@ -1225,10 +1211,7 @@ ${notes ? `**ملاحظة:** ${notes}` : ''}
                     .addComponents(price),
 
                 new ActionRowBuilder()
-                    .addComponents(imageUrl),
-
-                new ActionRowBuilder()
-                    .addComponents(notes)
+                    .addComponents(imageUrl)
             );
 
             return await interaction.showModal(modal);
