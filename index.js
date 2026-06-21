@@ -54,6 +54,8 @@ const CONFIG = {
 
     TICKET_CATEGORY: "1479861697283100955",
 
+    PRODUCT_CONTROL_CHANNEL: "PUT_PRODUCT_CONTROL_CHANNEL_ID",
+
     BRAND_NAME: "Ca Store",
 
     TRANSCRIPT_DOMAIN: "http://YOUR_SERVER_IP:3000",
@@ -61,6 +63,8 @@ const CONFIG = {
     AUTO_CLOSE_HOURS: 24,
 
     TICKET_FILE: "./tickets.json",
+
+    PRODUCTS_FILE: "./products.json",
 
     TRANSCRIPTS_DIR: "./transcripts"
 };
@@ -90,6 +94,14 @@ if (!fs.existsSync(CONFIG.TICKET_FILE)) {
     fs.writeFileSync(
         CONFIG.TICKET_FILE,
         JSON.stringify({ count: 0 }, null, 4)
+    );
+}
+
+if (!fs.existsSync(CONFIG.PRODUCTS_FILE)) {
+
+    fs.writeFileSync(
+        CONFIG.PRODUCTS_FILE,
+        JSON.stringify({ products: [] }, null, 4)
     );
 }
 
@@ -192,6 +204,29 @@ function formatDuration(ms) {
 function isSupport(member) {
 
     return member.roles.cache.has(CONFIG.SUPPORT_ROLE);
+}
+
+function saveProduct(productData) {
+
+    const data = JSON.parse(
+        fs.readFileSync(CONFIG.PRODUCTS_FILE)
+    );
+
+    data.products.push(productData);
+
+    fs.writeFileSync(
+        CONFIG.PRODUCTS_FILE,
+        JSON.stringify(data, null, 4)
+    );
+}
+
+function getProducts() {
+
+    const data = JSON.parse(
+        fs.readFileSync(CONFIG.PRODUCTS_FILE)
+    );
+
+    return data.products;
 }
 
 // ======================================================
@@ -316,6 +351,10 @@ client.once("ready", async () => {
         {
             name: "send-product",
             description: "إرسال رسالة منتج"
+        },
+        {
+            name: "product-control",
+            description: "لوحة تحكم المنتجات"
         }
     ]);
 });
@@ -484,6 +523,109 @@ client.on("interactionCreate", async interaction => {
     // ======================================================
 
     if (interaction.isStringSelectMenu()) {
+
+        if (interaction.customId === "product_select") {
+
+            const messageId = interaction.values[0];
+
+            const products = getProducts();
+
+            const product = products.find(p => p.messageId === messageId);
+
+            if (!product) {
+
+                return interaction.reply({
+
+                    content: "المنتج غير موجود",
+
+                    ephemeral: true
+                });
+            }
+
+            const channel = await client.channels.fetch(product.channelId).catch(() => null);
+
+            if (!channel) {
+
+                return interaction.reply({
+
+                    content: "القناة غير موجودة",
+
+                    ephemeral: true
+                });
+            }
+
+            const message = await channel.messages.fetch(messageId).catch(() => null);
+
+            if (!message) {
+
+                return interaction.reply({
+
+                    content: "الرسالة غير موجودة",
+
+                    ephemeral: true
+                });
+            }
+
+            const row =
+                new ActionRowBuilder()
+
+                    .addComponents(
+
+                        new ButtonBuilder()
+
+                            .setCustomId("edit_product")
+
+                            .setLabel("تعديل الرسالة")
+
+                            .setEmoji("✏️")
+
+                            .setStyle(ButtonStyle.Primary),
+
+                        new ButtonBuilder()
+
+                            .setCustomId("delete_product")
+
+                            .setLabel("حذف الرسالة")
+
+                            .setEmoji("🗑️")
+
+                            .setStyle(ButtonStyle.Danger),
+
+                        new ButtonBuilder()
+
+                            .setLabel("الذهاب للرسالة")
+
+                            .setEmoji("🔗")
+
+                            .setStyle(ButtonStyle.Link)
+
+                            .setURL(message.url)
+                    );
+
+            const embed = createEmbed({
+
+                title: `التحكم بـ ${product.productName} ${product.version}`,
+
+                description: `
+**السعر:** ${product.price}
+
+**القناة:** ${channel.name}
+
+**أرسل بواسطة:** <@${product.sentBy}>
+
+**التاريخ:** ${new Date(product.sentAt).toLocaleDateString('ar-SA')}
+                `,
+
+                thumbnail: interaction.guild.iconURL()
+            });
+
+            return interaction.update({
+
+                embeds: [embed],
+
+                components: [row]
+            });
+        }
 
         if (interaction.customId === "ticket_select") {
 
@@ -714,6 +856,144 @@ PermissionsBitField.Flags.ReadMessageHistory
     // ======================================================
 
     if (interaction.isButton()) {
+
+        // MORE DETAILS BUTTON
+
+        if (interaction.customId === "more_details") {
+
+            const message = interaction.message;
+
+            const embed = message.embeds[0];
+
+            const productName = embed.title;
+
+            const detailsEmbed = createEmbed({
+
+                title: `تفاصيل المنتج: ${productName}`,
+
+                description: `
+### 📊 معلومات إضافية
+
+هذا المنتج متوفر حالياً في ${CONFIG.BRAND_NAME}
+
+### ⭐ التقييمات والآراء
+
+⭐⭐⭐⭐⭐ (5/5)
+> "منتج ممتاز وجودة عالية!" - عميل سعيد
+
+⭐⭐⭐⭐⭐ (5/5)
+> "خدمة سريعة ومحترفة" - عميل راضٍ
+
+### 🖼️ صور المنتج
+
+*اضغط على الأسهم للتنقل بين الصور*
+                `,
+
+                thumbnail: interaction.guild.iconURL(),
+
+                color: 0x00bfff
+            });
+
+            const row =
+                new ActionRowBuilder()
+
+                    .addComponents(
+
+                        new ButtonBuilder()
+
+                            .setCustomId("prev_image")
+
+                            .setLabel("◀️")
+
+                            .setStyle(ButtonStyle.Secondary),
+
+                        new ButtonBuilder()
+
+                            .setCustomId("next_image")
+
+                            .setLabel("▶️")
+
+                            .setStyle(ButtonStyle.Secondary),
+
+                        new ButtonBuilder()
+
+                            .setLabel("شراء الآن")
+
+                            .setEmoji("🛒")
+
+                            .setStyle(ButtonStyle.Link)
+
+                            .setURL("https://www.ca-store.store/")
+                    );
+
+            return interaction.reply({
+
+                embeds: [detailsEmbed],
+
+                components: [row],
+
+                ephemeral: true
+            });
+        }
+
+        // EDIT PRODUCT BUTTON
+
+        if (interaction.customId === "edit_product") {
+
+            const modal =
+                new ModalBuilder()
+
+                    .setCustomId("edit_product_modal")
+
+                    .setTitle("تعديل المنتج");
+
+            const productName =
+                new TextInputBuilder()
+
+                    .setCustomId("product_name")
+
+                    .setLabel("اسم المنتج")
+
+                    .setStyle(TextInputStyle.Short);
+
+            const price =
+                new TextInputBuilder()
+
+                    .setCustomId("price")
+
+                    .setLabel("السعر")
+
+                    .setStyle(TextInputStyle.Short);
+
+            modal.addComponents(
+
+                new ActionRowBuilder()
+                    .addComponents(productName),
+
+                new ActionRowBuilder()
+                    .addComponents(price)
+            );
+
+            return interaction.showModal(modal);
+        }
+
+        // DELETE PRODUCT BUTTON
+
+        if (interaction.customId === "delete_product") {
+
+            const message = interaction.message;
+
+            await message.delete();
+
+            return interaction.update({
+
+                content: "تم حذف الرسالة بنجاح ✅",
+
+                embeds: [],
+
+                components: []
+            });
+        }
 
         // REVIEW BUTTON
 
@@ -990,6 +1270,40 @@ interaction.fields.getTextInputValue(
             );
         }
 
+        // EDIT PRODUCT MODAL
+
+        if (interaction.customId === "edit_product_modal") {
+
+            const productName =
+                interaction.fields.getTextInputValue("product_name");
+
+            const price =
+                interaction.fields.getTextInputValue("price");
+
+            const message = interaction.message;
+
+            const embed = message.embeds[0];
+
+            embed.setTitle(productName);
+
+            embed.description = embed.description.replace(
+                /\*\*السعر:\*\* .*/,
+                `**السعر:** ${price} ر.س`
+            );
+
+            await message.edit({
+
+                embeds: [embed]
+            });
+
+            return interaction.reply({
+
+                content: "تم تعديل المنتج بنجاح ✅",
+
+                ephemeral: true
+            });
+        }
+
         // PRODUCT MODAL
 
         if (interaction.customId === "product_modal") {
@@ -1009,26 +1323,39 @@ interaction.fields.getTextInputValue(
             const imageUrl =
                 interaction.fields.getTextInputValue("image_url");
 
-            const featuresList = features.split('\n').map(f => `> ${f}`).join('\n');
+            const featuresList = features.split('\n').map(f => `✨ ${f}`).join('\n');
 
             const embed = createEmbed({
 
-                title: `${CONFIG.BRAND_NAME}\n${productName} ${version}`,
+                title: `${productName} ${version}`,
 
                 description: `
-## مميزات الجرافيك
+### 🎨 مميزات الجرافيك
 
 ${featuresList}
 
-**السعر:** ${price}
+### 💰 السعر
+**${price} ر.س**
+
+---
+*تم تطوير المنتج بواسطة ${CONFIG.BRAND_NAME}*
                 `,
 
-                thumbnail: interaction.guild.iconURL()
+                thumbnail: interaction.guild.iconURL(),
+
+                color: 0x00ff00
             });
 
             if (imageUrl) {
                 embed.setImage(imageUrl);
             }
+
+            embed.setAuthor({
+
+                name: CONFIG.BRAND_NAME,
+
+                iconURL: interaction.guild.iconURL()
+            });
 
             const row =
                 new ActionRowBuilder()
@@ -1041,9 +1368,9 @@ ${featuresList}
 
                             .setEmoji("🛒")
 
-                            .setStyle(ButtonStyle.Success)
+                            .setStyle(ButtonStyle.Link)
 
-                            .setCustomId("quick_buy"),
+                            .setURL("https://www.ca-store.store/"),
 
                         new ButtonBuilder()
 
@@ -1051,16 +1378,37 @@ ${featuresList}
 
                             .setEmoji("📋")
 
-                            .setStyle(ButtonStyle.Secondary)
+                            .setStyle(ButtonStyle.Primary)
 
                             .setCustomId("more_details")
                     );
 
-            await interaction.channel.send({
+            const sentMessage = await interaction.channel.send({
 
                 embeds: [embed],
 
                 components: [row]
+            });
+
+            saveProduct({
+
+                messageId: sentMessage.id,
+
+                channelId: sentMessage.channelId,
+
+                productName: productName,
+
+                version: version,
+
+                price: price,
+
+                imageUrl: imageUrl,
+
+                features: features,
+
+                sentAt: new Date().toISOString(),
+
+                sentBy: interaction.user.id
             });
 
             return interaction.reply({
@@ -1156,7 +1504,7 @@ ${featuresList}
 
                     .setCustomId("product_name")
 
-                    .setLabel("اسم المنتج (مثال: D1 Pack)")
+                    .setLabel("اسم المنتج (مثال: CA1 Pack)")
 
                     .setStyle(TextInputStyle.Short);
 
@@ -1215,6 +1563,75 @@ ${featuresList}
             );
 
             return await interaction.showModal(modal);
+        }
+
+        if (interaction.commandName === "product-control") {
+
+            if (!isSupport(interaction.member)) {
+
+                return interaction.reply({
+
+                    content: "ليس لديك صلاحية",
+
+                    ephemeral: true
+                });
+            }
+
+            const products = getProducts();
+
+            if (products.length === 0) {
+
+                return interaction.reply({
+
+                    content: "لا توجد منتجات مرسلة بعد",
+
+                    ephemeral: true
+                });
+            }
+
+            const options = products.slice(0, 25).map((p, index) => ({
+
+                label: `${p.productName} ${p.version}`,
+
+                value: p.messageId,
+
+                description: `السعر: ${p.price}`
+            }));
+
+            const menu =
+                new StringSelectMenuBuilder()
+
+                    .setCustomId("product_select")
+
+                    .setPlaceholder("اختر منتج للتحكم")
+
+                    .addOptions(options);
+
+            const row =
+                new ActionRowBuilder()
+                    .addComponents(menu);
+
+            const embed = createEmbed({
+
+                title: "لوحة تحكم المنتجات",
+
+                description: `
+عدد المنتجات: ${products.length}
+
+اختر منتج من القائمة للتحكم به
+                `,
+
+                thumbnail: interaction.guild.iconURL()
+            });
+
+            return interaction.reply({
+
+                embeds: [embed],
+
+                components: [row],
+
+                ephemeral: true
+            });
         }
     }
 });
